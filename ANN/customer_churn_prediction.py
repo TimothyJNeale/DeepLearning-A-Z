@@ -149,6 +149,17 @@ y_pred = ann.predict(X_sample)
 logging.info(y_pred[0][0])
 logging.info(f'Customer will leave: {y_pred[0][0] > 0.5}')
 
+# Predict the test set results
+y_pred = ann.predict(X_test)
+y_pred = (y_pred > 0.5) # convert probabilities to True/False
+
+#  Make the confusion matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
+cm = confusion_matrix(y_test, y_pred)
+logging.info(cm)
+accuracy = accuracy_score(y_test, y_pred)
+logging.info(f'Accuracy score: {accuracy}')
+
 ######################################### FINISH ##############################################
 logging.info('End of program')
 
