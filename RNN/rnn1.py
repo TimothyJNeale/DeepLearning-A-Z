@@ -1,9 +1,11 @@
 # Build an recurrent neural network 
+# A LSTM (Long Short Term Memory) RNN is used
+# Build a model based on 5 years of Google stock prices
 
 WORKING_DIRECTORY = 'RNN'
 DATA_DIRECTORY ='data'
-TRAINING_DATA_DIRECTORY = 'training_set'
-TEST_DATA_DIRECTORY = 'test_set'
+TRAINING_DATA = 'Google_Stock_Price_Train.csv'
+TEST_DATA = 'Google_Stock_Price_Test.csv'
 MODEL_FILE = 'rnn1.keras'
 PREDICTION_FILE_1 = 'cat_or_dog_1.jpg'
 PREDICTION_FILE_2 = 'cat_or_dog_2.jpg'
@@ -14,7 +16,12 @@ from dotenv import load_dotenv
 import logging
 
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
 import tensorflow as tf
+
+from sklearn.preprocessing import MinMaxScaler
+
 
 # load environment variables from .env file
 load_dotenv()
@@ -26,7 +33,6 @@ logging.disable(logging.DEBUG) # Supress debugging output from modules imported
 
 ########################################### START ################################################
 logging.info('Start of program')
-logging.info(f'Tensorflow version {tf.__version__}')
 
 # Get the current directory
 home = os.getcwd()
@@ -34,13 +40,13 @@ home = os.getcwd()
 data_dir = os.path.join(home, DATA_DIRECTORY)
 logging.info(f'Data directory: {data_dir}')
 
-#Get the test data directory
-test_data_dir = os.path.join(data_dir, TEST_DATA_DIRECTORY)
-logging.info(f'Test data directory: {test_data_dir}')
+#Get the test data 
+test_data_file = os.path.join(data_dir, TEST_DATA)
+logging.info(f'Test data file: {test_data_file}')
 
-# Get the training data directory
-training_data_dir = os.path.join(data_dir, TRAINING_DATA_DIRECTORY)
-logging.info(f'Training data directory: {training_data_dir}')
+# Get the training data
+training_data_file = os.path.join(data_dir, TRAINING_DATA)
+logging.info(f'Training data file: {training_data_file}')
 
 # Get the working directory
 working_dir = os.path.join(home, WORKING_DIRECTORY)
@@ -62,17 +68,46 @@ else:
     logging.info('Data preprocessing section entered')
 
     # Preprocess the training set
+    dataset_train = pd.read_csv(training_data_file)
+    logging.info(f'Training data shape: {dataset_train.shape}')
+
+    training_set = dataset_train.iloc[:, 1:2].values
+    logging.info(f'Training set shape: {training_set.shape}')
+    logging.info(f'Training set type: {type(training_set)}')
+
+    # Feature scaling
+    sc = MinMaxScaler(feature_range=(0,1), copy=True)
+    training_set_scaled = sc.fit_transform(training_set)
+    logging.info(f'Training set shape: {training_set_scaled.shape}')
+    logging.info(f'Training set type: {type(training_set_scaled)}')   
 
     #################################### BUILDING THE RNN ###########################################
     logging.info('RNN build section entered')
 
-    # Initialise the RNN
-    rnn = tf.keras.models.Sequential()
+    # Creating the data structure with 60 timesteps and 1 output
+    X_train = []
+    y_train = []
+
+    for i in range(60, 1258):
+        X_train.append(training_set_scaled[i-60:i, 0])
+        y_train.append(training_set_scaled[i, 0])
+
+    # Convert the lists to numpy arrays
+    X_train, y_train = np.array(X_train), np.array(y_train)
+    logging.info(f'X_train type: {type(X_train)}')
+    logging.info(f'X_train shape: {X_train.shape}')
+    logging.info(f'y_train type: {type(y_train)}')
+    logging.info(f'y_train shape: {y_train.shape}')   
   
+    # Reshaping
+    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+    logging.info(f'X_train type: {type(X_train)}')
+    logging.info(f'X_train shape: {X_train.shape}')
+
 
     # save the model
-    rnn.save(os.path.join(data_dir, MODEL_FILE))
-    logging.info(f'Model saved as {MODEL_FILE}')
+    # rnn.save(os.path.join(data_dir, MODEL_FILE))
+    # logging.info(f'Model saved as {MODEL_FILE}')
 
 ####################################### MAKING PREDICTIONS ##########################################
 logging.info('Prediction section entered')
