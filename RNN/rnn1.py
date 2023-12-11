@@ -6,7 +6,7 @@ WORKING_DIRECTORY = 'RNN'
 DATA_DIRECTORY ='data'
 TRAINING_DATA = 'Google_Stock_Price_Train.csv'
 TEST_DATA = 'Google_Stock_Price_Test.csv'
-MODEL_FILE = 'rnn1.keras'
+MODEL_FILE = 'regressor.keras'
 PREDICTION_FILE_1 = 'cat_or_dog_1.jpg'
 PREDICTION_FILE_2 = 'cat_or_dog_2.jpg'
 
@@ -18,10 +18,14 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import tensorflow as tf
+
+from keras.models import Sequential
+from keras.models import load_model
+from keras.layers import Dense
+from keras.layers import LSTM
+from keras.layers import Dropout
 
 from sklearn.preprocessing import MinMaxScaler
-
 
 # load environment variables from .env file
 load_dotenv()
@@ -57,7 +61,7 @@ logging.info(f'Current directory: {os.getcwd()}')
 if os.path.isfile(os.path.join(data_dir, MODEL_FILE)):
     logging.info(f'Model file {MODEL_FILE} exists')
     logging.info('Loading model')
-    rnn = tf.keras.models.load_model(os.path.join(data_dir, MODEL_FILE))
+    regressor = load_model(os.path.join(data_dir, MODEL_FILE))
     logging.info('Model loaded')
 else:
     # Model file does not exist, build the model
@@ -103,11 +107,39 @@ else:
     X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
     logging.info(f'X_train type: {type(X_train)}')
     logging.info(f'X_train shape: {X_train.shape}')
+    logging.info(f'X_train.shape[1]: {X_train.shape[1]}')
 
+    # Initialising the RNN
+    regressor = Sequential()
+
+    # Adding the first LSTM layer and some Dropout regularisation
+    regressor.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)))
+    regressor.add(Dropout(rate=0.2))
+
+    # Adding a second LSTM layer and some Dropout regularisation
+    regressor.add(LSTM(units=50, return_sequences=True))
+    regressor.add(Dropout(rate=0.2))
+
+    # Adding a third LSTM layer and some Dropout regularisation
+    regressor.add(LSTM(units=50, return_sequences=True))
+    regressor.add(Dropout(rate=0.2))
+
+    # Adding a fourth LSTM layer and some Dropout regularisation
+    regressor.add(LSTM(units=50))
+    regressor.add(Dropout(rate=0.2))
+
+    # Adding the output layer
+    regressor.add(Dense(units=1))
+
+    # Compiling the RNN
+    regressor.compile(optimizer='adam', loss='mean_squared_error')
+
+    # Fitting the RNN to the Training set
+    regressor.fit(X_train, y_train, epochs=100, batch_size=32)
 
     # save the model
-    # rnn.save(os.path.join(data_dir, MODEL_FILE))
-    # logging.info(f'Model saved as {MODEL_FILE}')
+    regressor.save(os.path.join(data_dir, MODEL_FILE))
+    logging.info(f'Model saved as {MODEL_FILE}')
 
 ####################################### MAKING PREDICTIONS ##########################################
 logging.info('Prediction section entered')
