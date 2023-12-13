@@ -7,8 +7,7 @@ DATA_DIRECTORY ='data'
 TRAINING_DATA = 'Google_Stock_Price_Train.csv'
 TEST_DATA = 'Google_Stock_Price_Test.csv'
 MODEL_FILE = 'regressor.keras'
-PREDICTION_FILE_1 = 'cat_or_dog_1.jpg'
-PREDICTION_FILE_2 = 'cat_or_dog_2.jpg'
+
 
 # Import libraries
 import os
@@ -57,6 +56,25 @@ working_dir = os.path.join(home, WORKING_DIRECTORY)
 os.chdir(working_dir)
 logging.info(f'Current directory: {os.getcwd()}')
 
+##################################### DATA PREPROCESSING ##########################################
+logging.info('Data preprocessing section entered')
+
+# Load the training dataset
+dataset_train = pd.read_csv(training_data_file)
+logging.info(f'Training data shape: {dataset_train.shape}')
+logging.info(f'Training data type: {type(dataset_train)}')
+
+# Preprocess the training set
+training_set = dataset_train.iloc[:, 1:2].values
+logging.info(f'Training set shape: {training_set.shape}')
+logging.info(f'Training set type: {type(training_set)}')
+
+# Feature scaling
+sc = MinMaxScaler(feature_range=(0,1), copy=True)
+training_set_scaled = sc.fit_transform(training_set)
+logging.info(f'Training set shape: {training_set_scaled.shape}')
+logging.info(f'Training set type: {type(training_set_scaled)}')   
+
 # Check if model file exists
 if os.path.isfile(os.path.join(data_dir, MODEL_FILE)):
     logging.info(f'Model file {MODEL_FILE} exists')
@@ -67,23 +85,6 @@ else:
     # Model file does not exist, build the model
     logging.info(f'Model file {MODEL_FILE} does not exist')
     logging.info('Building model')
-
-    ##################################### DATA PREPROCESSING ##########################################
-    logging.info('Data preprocessing section entered')
-
-    # Preprocess the training set
-    dataset_train = pd.read_csv(training_data_file)
-    logging.info(f'Training data shape: {dataset_train.shape}')
-
-    training_set = dataset_train.iloc[:, 1:2].values
-    logging.info(f'Training set shape: {training_set.shape}')
-    logging.info(f'Training set type: {type(training_set)}')
-
-    # Feature scaling
-    sc = MinMaxScaler(feature_range=(0,1), copy=True)
-    training_set_scaled = sc.fit_transform(training_set)
-    logging.info(f'Training set shape: {training_set_scaled.shape}')
-    logging.info(f'Training set type: {type(training_set_scaled)}')   
 
     #################################### BUILDING THE RNN ###########################################
     logging.info('RNN build section entered')
@@ -144,8 +145,40 @@ else:
 ####################################### MAKING PREDICTIONS ##########################################
 logging.info('Prediction section entered')
 
+# Getting the real Google stock price from 2017
+dataset_test = pd.read_csv(test_data_file)
+logging.info(f'Test data shape: {dataset_test.shape}')
 
+real_stock_price = dataset_test.iloc[:, 1:2].values
+logging.info(f'Real stock price shape: {real_stock_price.shape}')
+logging.info(f'Real stock price type: {type(real_stock_price)}')
 
+# Getting the predicted stock price of 2017
+dataset_total = pd.concat((dataset_train['Open'], dataset_test['Open']), axis=0)
+
+# Get the inputs for the test data
+
+# Get the last 60 days of the training data
+inputs = dataset_total[len(dataset_total) - len(dataset_test) - 60:].values
+inputs = inputs.reshape(-1, 1)
+
+# Scale the inputs
+inputs = sc.transform(inputs)
+
+# Create the test data structure
+X_test = []
+for i in range(60, 80):
+    X_test.append(inputs[i-60:i, 0])
+
+# Convert the lists to numpy arrays
+X_test = np.array(X_test)
+
+# Reshape the data
+X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+
+# Get the first 20 days of the test data
+predicted_stock_price = regressor.predict(X_test)
+predicted_stock_price = sc.inverse_transform(predicted_stock_price)
 
 
 ############################################# FINISH ################################################
