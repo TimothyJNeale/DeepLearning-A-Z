@@ -20,6 +20,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 
+from sklearn.metrics import confusion_matrix, accuracy_score
+
 # load environment variables from .env file
 load_dotenv()
 
@@ -108,15 +110,54 @@ logging.info(f'X_train {X_train}')
 logging.info(f'X_test {X_test}')
 
 # Training the Logistic Regression model on the Training set
-
-
-
-
+classifier = LogisticRegression(random_state = 0)
+classifier.fit(X_train, y_train)
 
 #################################### MAKING PREDICTIONS ###########################################
 logging.info('Prediction section entered')
 
+# Predicting a new result
+# Predict if a 30 year old male, with a salary of $87000 will buy the product
+# 30,87000
+# Scale the data
+X_new = sc.transform([[30, 87000]])
+# add the on hot variables
+X_new = np.concatenate((np.array([[1.0, 0.0]]), X_new), axis=1)
+logging.info(f'X_new {X_new}')
+y_pred = classifier.predict(X_new)
+logging.info(f'y_pred {y_pred}')
 
+# Predict if a 39 year old female, with a salary of $122000 will buy the product
+# 122,000
+
+# Predicting the Test set results
+X_new = sc.transform([[39, 122000]])
+# add the on hot variables
+X_new = np.concatenate((np.array([[0.0, 1.0]]), X_new), axis=1)
+logging.info(f'X_new {X_new}')
+y_pred = classifier.predict(X_new)
+logging.info(f'y_pred {y_pred}')
+
+y_pred = classifier.predict(X_test)
+# logging.info(f'y_pred {y_pred}')
+# logging.info(f'y_test {y_test}')
+logging.info(np.concatenate((y_pred.reshape(len(y_pred),1), y_test.reshape(len(y_test),1)),1))
+
+# Making the Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+logging.info(f'cm {cm}')
+accuracy = accuracy_score(y_test, y_pred)
+logging.info(f'accuracy {accuracy}')
+
+
+#################################### VISUALISING THE RESULTS ###########################################
+
+# Visualising the Training set results
+
+
+
+
+# Visualising the Test set results
 
 ######################################### FINISH ##############################################
 logging.info('End of program')
