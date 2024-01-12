@@ -67,146 +67,137 @@ working_dir = os.path.join(home, WORKING_DIRECTORY)
 os.chdir(working_dir)
 logging.info(f'Current directory: {os.getcwd()}')
 
+################################# CREATING THE ARCHITECTURE ######################################
+#bol = None
+logging.info('Creating the architecture section entered')
 
-
-# Check if model file exists
-if os.path.isfile(os.path.join(data_dir, MODEL_FILE)):
-    logging.info(f'Model file {MODEL_FILE} exists')
-    logging.info('Loading model')
-    # use PyTorch to load the model
-    bol = torch.load(os.path.join(data_dir, MODEL_FILE))
-
-    logging.info('Model loaded')
-else:
-    # Model file does not exist, build the model
-    logging.info(f'Model file {MODEL_FILE} does not exist')
-
-    logging.info('Building model')
-
-    ##################################### DATA PREPROCESSING ##########################################
-    logging.info('Data preprocessing section entered')
-
-    # import the data sets
-    logging.info('Importing the data')
-    movies = pd.read_csv(movie_data_file, sep='::', header=None, engine='python', encoding='latin-1')
-    users = pd.read_csv(user_data_file, sep='::', header=None, engine='python', encoding='latin-1')
-    ratings = pd.read_csv(ratings_data_file, sep='::', header=None, engine='python', encoding='latin-1')
-
-    # Import the training and test sets
-    logging.info('Importing the training and test sets')
-    training_set = pd.read_csv(training_data_file, delimiter='\t', header=None)
-    training_set = np.array(training_set, dtype='int')
-
-    test_set = pd.read_csv(test_data_file, delimiter='\t', header=None)
-    test_set = np.array(test_set, dtype='int')
-
-    # Get the number of users and movies
-    logging.info('Getting the number of users and movies')
-    num_users = int(max(max(training_set[:, 0]), max(test_set[:, 0])))
-    num_movies = int(max(max(training_set[:, 1]), max(test_set[:, 1])))
-    logging.info(f'Number of users: {num_users}')
-    logging.info(f'Number of movies: {num_movies}')
-
-    # Convert the data into an array with users in lines and movies in columns
-    logging.info('Converting the data into an array with users in lines and movies in columns')
-    def convert(data):
-        new_data = []
-        for id_users in range(1, num_users + 1):
-            id_movies = data[:, 1][data[:, 0] == id_users]
-            id_ratings = data[:, 2][data[:, 0] == id_users]
-            ratings = np.zeros(num_movies)
-            ratings[id_movies - 1] = id_ratings
-            new_data.append(list(ratings))
-        return new_data
+# create the class
+class RBM():
+    def __init__(self, nv, nh):
+        self.W = torch.randn(nh, nv)
+        self.a = torch.randn(1, nh)
+        self.b = torch.randn(1, nv)
     
-    training_set = convert(training_set)
-    test_set = convert(test_set)
+    def sample_h(self, x):
+        wx = torch.mm(x, self.W.t())
+        activation = wx + self.a.expand_as(wx)
+        p_h_given_v = torch.sigmoid(activation)
+        return p_h_given_v, torch.bernoulli(p_h_given_v)
+    
+    def sample_v(self, y):
+        wy = torch.mm(y, self.W)
+        activation = wy + self.b.expand_as(wy)
+        p_v_given_h = torch.sigmoid(activation)
+        return p_v_given_h, torch.bernoulli(p_v_given_h)
 
-    # Convert the data into Torch tensors
-    logging.info('Converting the data into Torch tensors')
-    training_set = torch.FloatTensor(training_set)
-    test_set = torch.FloatTensor(test_set)
+    def train(self, v0, vk, ph0, phk):
+        self.W += (torch.mm(v0.t(), ph0) - torch.mm(vk.t(), phk)).t()
+        self.b += torch.sum((v0 - vk), 0)
+        self.a += torch.sum((ph0 - phk), 0)
 
-    # Convert the ratings into binary ratings 1 (Liked) or 0 (Not Liked)
-    logging.info('Converting the ratings into binary ratings 1 (Liked) or 0 (Not Liked)')
+##################################### DATA PREPROCESSING ##########################################
+logging.info('Data preprocessing section entered')
 
-    # Replace all the zeros with -1
-    training_set[training_set == 0] = -1
-    test_set[test_set == 0] = -1
+# import the data sets
+logging.info('Importing the data')
+movies = pd.read_csv(movie_data_file, sep='::', header=None, engine='python', encoding='latin-1')
+users = pd.read_csv(user_data_file, sep='::', header=None, engine='python', encoding='latin-1')
+ratings = pd.read_csv(ratings_data_file, sep='::', header=None, engine='python', encoding='latin-1')
 
-    # Replace all the ratings of 1 and 2 with 0 (Not Liked)
-    training_set[training_set == 1] = 0
-    training_set[training_set == 2] = 0
-    test_set[test_set == 1] = 0
-    test_set[test_set == 2] = 0
+# Import the training and test sets
+logging.info('Importing the training and test sets')
+training_set = pd.read_csv(training_data_file, delimiter='\t', header=None)
+training_set = np.array(training_set, dtype='int')
 
-    # Replace all the ratings of 3, 4 and 5 with 1 (Liked)
-    training_set[training_set >= 3] = 1
-    test_set[test_set >= 3] = 1
+test_set = pd.read_csv(test_data_file, delimiter='\t', header=None)
+test_set = np.array(test_set, dtype='int')
 
-    ################################# CREATING THE ARCHITECTURE ######################################
-    #bol = None
-    logging.info('Creating the architecture section entered')
+# Get the number of users and movies
+logging.info('Getting the number of users and movies')
+num_users = int(max(max(training_set[:, 0]), max(test_set[:, 0])))
+num_movies = int(max(max(training_set[:, 1]), max(test_set[:, 1])))
+logging.info(f'Number of users: {num_users}')
+logging.info(f'Number of movies: {num_movies}')
 
-    # create the class
-    class RBM():
-        def __init__(self, nv, nh):
-            self.W = torch.randn(nh, nv)
-            self.a = torch.randn(1, nh)
-            self.b = torch.randn(1, nv)
-        
-        def sample_h(self, x):
-            wx = torch.mm(x, self.W.t())
-            activation = wx + self.a.expand_as(wx)
-            p_h_given_v = torch.sigmoid(activation)
-            return p_h_given_v, torch.bernoulli(p_h_given_v)
-        
-        def sample_v(self, y):
-            wy = torch.mm(y, self.W)
-            activation = wy + self.b.expand_as(wy)
-            p_v_given_h = torch.sigmoid(activation)
-            return p_v_given_h, torch.bernoulli(p_v_given_h)
+# Convert the data into an array with users in lines and movies in columns
+logging.info('Converting the data into an array with users in lines and movies in columns')
+def convert(data):
+    new_data = []
+    for id_users in range(1, num_users + 1):
+        id_movies = data[:, 1][data[:, 0] == id_users]
+        id_ratings = data[:, 2][data[:, 0] == id_users]
+        ratings = np.zeros(num_movies)
+        ratings[id_movies - 1] = id_ratings
+        new_data.append(list(ratings))
+    return new_data
 
-        def train(self, v0, vk, ph0, phk):
-            self.W += (torch.mm(v0.t(), ph0) - torch.mm(vk.t(), phk)).t()
-            self.b += torch.sum((v0 - vk), 0)
-            self.a += torch.sum((ph0 - phk), 0)
+training_set = convert(training_set)
+test_set = convert(test_set)
 
-    # Create the Boltzman Machine
-    logging.info('Creating the Boltzman Machine')
-    bol = RBM(num_movies, NUMBER_OF_HIDDEN_NODES)
+# Convert the data into Torch tensors
+logging.info('Converting the data into Torch tensors')
+training_set = torch.FloatTensor(training_set)
+test_set = torch.FloatTensor(test_set)
 
-    ############################### TRAINING THE BOLTZMAN MACHINE ####################################
-    logging.info('Training the Boltzman Machine')
+# Convert the ratings into binary ratings 1 (Liked) or 0 (Not Liked)
+logging.info('Converting the ratings into binary ratings 1 (Liked) or 0 (Not Liked)')
 
-    for epoch in range(1, NuMBER_OF_EPOCHS + 1):
-        train_loss = 0
-        s = 0.0
-        for id_user in range(0, num_users - BATCH_SIZE, BATCH_SIZE):
-            vk = training_set[id_user:id_user + BATCH_SIZE]
-            v0 = training_set[id_user:id_user + BATCH_SIZE]
-            ph0,_ = bol.sample_h(v0)
-            for k in range(10):
-                _,hk = bol.sample_h(vk)
-                _,vk = bol.sample_v(hk)
-                vk[v0<0] = v0[v0<0] # Freeze the movies that were not rated (-1)
-            phk,_ = bol.sample_h(vk)
-            bol.train(v0, vk, ph0, phk)
-            train_loss += torch.mean(torch.abs(v0[v0>=0] - vk[v0>=0]))
-            s += 1.
-        logging.info(f'epoch: {epoch} loss: {train_loss/s}')
+# Replace all the zeros with -1
+training_set[training_set == 0] = -1
+test_set[test_set == 0] = -1
 
+# Replace all the ratings of 1 and 2 with 0 (Not Liked)
+training_set[training_set == 1] = 0
+training_set[training_set == 2] = 0
+test_set[test_set == 1] = 0
+test_set[test_set == 2] = 0
 
-
-    # Save the model using PyTorch
-    logging.info('Saving model')
-    torch.save(bol, os.path.join(data_dir, MODEL_FILE))
+# Replace all the ratings of 3, 4 and 5 with 1 (Liked)
+training_set[training_set >= 3] = 1
+test_set[test_set >= 3] = 1
 
 
-#################################### MAKING RECOMENDATIONS #######################################
+# Create the Boltzman Machine
+logging.info('Creating the Boltzman Machine')
+bol = RBM(num_movies, NUMBER_OF_HIDDEN_NODES)
 
-logging.info('Making Recomendations')
+############################### TRAINING THE BOLTZMAN MACHINE ####################################
+logging.info('Training the Boltzman Machine')
 
+for epoch in range(1, NuMBER_OF_EPOCHS + 1):
+    train_loss = 0
+    s = 0.0
+    for id_user in range(0, num_users - BATCH_SIZE, BATCH_SIZE):
+        vk = training_set[id_user:id_user + BATCH_SIZE]
+        v0 = training_set[id_user:id_user + BATCH_SIZE]
+        ph0,_ = bol.sample_h(v0)
+        for k in range(10):
+            _,hk = bol.sample_h(vk)
+            _,vk = bol.sample_v(hk)
+            vk[v0<0] = v0[v0<0] # Freeze the movies that were not rated (-1)
+        phk,_ = bol.sample_h(vk)
+        bol.train(v0, vk, ph0, phk)
+        train_loss += torch.mean(torch.abs(v0[v0>=0] - vk[v0>=0]))
+        s += 1.0
+    logging.info(f'epoch: {epoch} loss: {train_loss/s}')
+
+
+####################################### RUN ON TEST DATA ##########################################
+logging.info('Run on test data section entered')
+
+# Test the model
+test_loss = 0
+s = 0.0
+for id_user in range(num_users):
+    v = training_set[id_user:id_user + 1]
+    vt = test_set[id_user:id_user + 1]
+    if len(vt[vt>=0]) > 0:
+        _,h = bol.sample_h(v)
+        _,v = bol.sample_v(h)
+        test_loss += torch.mean(torch.abs(vt[vt>=0] - v[vt>=0]))
+        s += 1.0
+
+logging.info(f'test loss: {test_loss/s}')
 
 
 
