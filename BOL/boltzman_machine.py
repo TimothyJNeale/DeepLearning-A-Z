@@ -9,6 +9,9 @@ MODEL_FILE = 'boltzman_model.pt'
 TRAINING_DATA = 'u1.base'
 TEST_DATA = 'u1.test'
 
+NUMBER_OF_HIDDEN_NODES = 100
+BATCH_SIZE = 100
+
 # Import libraries
 import os
 from dotenv import load_dotenv
@@ -76,7 +79,6 @@ if os.path.isfile(os.path.join(data_dir, MODEL_FILE)):
 else:
     # Model file does not exist, build the model
     logging.info(f'Model file {MODEL_FILE} does not exist')
-    bol= None
 
     logging.info('Building model')
 
@@ -123,8 +125,55 @@ else:
     logging.info('Converting the data into Torch tensors')
     training_set = torch.FloatTensor(training_set)
     test_set = torch.FloatTensor(test_set)
-    
-    
+
+    # Convert the ratings into binary ratings 1 (Liked) or 0 (Not Liked)
+    logging.info('Converting the ratings into binary ratings 1 (Liked) or 0 (Not Liked)')
+
+    # Replace all the zeros with -1
+    training_set[training_set == 0] = -1
+    test_set[test_set == 0] = -1
+
+    # Replace all the ratings of 1 and 2 with 0 (Not Liked)
+    training_set[training_set == 1] = 0
+    training_set[training_set == 2] = 0
+    test_set[test_set == 1] = 0
+    test_set[test_set == 2] = 0
+
+    # Replace all the ratings of 3, 4 and 5 with 1 (Liked)
+    training_set[training_set >= 3] = 1
+    test_set[test_set >= 3] = 1
+
+    ################################# CREATING THE ARCHITECTURE ######################################
+    #bol = None
+    logging.info('Creating the architecture section entered')
+
+    # create the class
+    class RBM():
+        def __init__(self, nv, nh):
+            self.W = torch.randn(nh, nv)
+            self.a = torch.randn(1, nh)
+            self.b = torch.randn(1, nv)
+        
+        def sample_h(self, x):
+            wx = torch.mm(x, self.W.t())
+            activation = wx + self.a.expand_as(wx)
+            p_h_given_v = torch.sigmoid(activation)
+            return p_h_given_v, torch.bernoulli(p_h_given_v)
+        
+        def sample_v(self, y):
+            wy = torch.mm(y, self.W)
+            activation = wy + self.b.expand_as(wy)
+            p_v_given_h = torch.sigmoid(activation)
+            return p_v_given_h, torch.bernoulli(p_v_given_h)
+
+        def train(self, v0, vk, ph0, phk):
+            self.W += (torch.mm(v0.t(), ph0) - torch.mm(vk.t(), phk)).t()
+            self.b += torch.sum((v0 - vk), 0)
+            self.a += torch.sum((ph0 - phk), 0)
+
+    # Create the Boltzman Machine
+    logging.info('Creating the Boltzman Machine')
+    bol = RBM(num_movies, NUMBER_OF_HIDDEN_NODES)
 
     ############################### TRAINING THE BOLTZMAN MACHINE ####################################
     logging.info('Training the Boltzman Machine')
