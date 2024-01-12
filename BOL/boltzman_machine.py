@@ -11,6 +11,7 @@ TEST_DATA = 'u1.test'
 
 NUMBER_OF_HIDDEN_NODES = 100
 BATCH_SIZE = 100
+NuMBER_OF_EPOCHS = 10
 
 # Import libraries
 import os
@@ -178,14 +179,28 @@ else:
     ############################### TRAINING THE BOLTZMAN MACHINE ####################################
     logging.info('Training the Boltzman Machine')
 
+    for epoch in range(1, NuMBER_OF_EPOCHS + 1):
+        train_loss = 0
+        s = 0.0
+        for id_user in range(0, num_users - BATCH_SIZE, BATCH_SIZE):
+            vk = training_set[id_user:id_user + BATCH_SIZE]
+            v0 = training_set[id_user:id_user + BATCH_SIZE]
+            ph0,_ = bol.sample_h(v0)
+            for k in range(10):
+                _,hk = bol.sample_h(vk)
+                _,vk = bol.sample_v(hk)
+                vk[v0<0] = v0[v0<0] # Freeze the movies that were not rated (-1)
+            phk,_ = bol.sample_h(vk)
+            bol.train(v0, vk, ph0, phk)
+            train_loss += torch.mean(torch.abs(v0[v0>=0] - vk[v0>=0]))
+            s += 1.
+        logging.info(f'epoch: {epoch} loss: {train_loss/s}')
 
 
-    ################################ TRAINING THE BOLTZMAN MACHINE #######################################
-    logging.info('Boltzman Machine training section entered')
 
     # Save the model using PyTorch
-    # logging.info('Saving model')
-    # torch.save(bol, os.path.join(data_dir, MODEL_FILE))
+    logging.info('Saving model')
+    torch.save(bol, os.path.join(data_dir, MODEL_FILE))
 
 
 #################################### MAKING RECOMENDATIONS #######################################
