@@ -181,7 +181,30 @@ for epoch in range(1, NUMBER_OF_EPOCHS + 1):
 ####################################### RUN ON TEST DATA ##########################################
 logging.info('Run on test data section entered')
 
+test_loss = 0
+s = 0.
+for id_user in range(num_users):
+    # Create a fake batch of size 1
+    input = Variable(training_set[id_user]).unsqueeze(0)
+    target = Variable(test_set[id_user]).unsqueeze(0)
+    # Check if user has rated any movies
+    if torch.sum(target.data > 0) > 0:
+        # Get the output
+        output = sae(input)
+        target.require_grad = False
+        # Set the output to 0 for movies not rated
+        output[target == 0] = 0
+        # Compute the loss
+        loss = criterion(output, target)
+        mean_corrector = num_movies/float(torch.sum(target.data > 0) + 1e-10)
+        # Update the loss
+        test_loss += np.sqrt(loss.data * mean_corrector)
+        # Update the number of users who rated at least one movie
+        s += 1.
+        # Update the weights
+        optimizer.step()
 
+logging.info(f'Test loss: {str(test_loss/s)}')
 
 
 
