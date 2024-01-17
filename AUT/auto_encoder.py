@@ -11,7 +11,7 @@ TEST_DATA = 'u1.test'
 NUMBER_OF_HIDDEN_NODES1 = 20
 NUMBER_OF_HIDDEN_NODES2 = 10
 BATCH_SIZE = 100
-NUMBER_OF_EPOCHS = 10
+NUMBER_OF_EPOCHS = 200
 
 # Import libraries
 import os
@@ -148,6 +148,33 @@ optimizer = optim.RMSprop(sae.parameters(), lr=0.01, weight_decay=0.5)
 
 ############################### TRAINING THE AUTO ENCODER ####################################
 logging.info('Training the Auto Encoder')
+for epoch in range(1, NUMBER_OF_EPOCHS + 1):
+    train_loss = 0
+    s = 0.
+    for id_user in range(num_users):
+        # Create a fake batch of size 1
+        input = Variable(training_set[id_user]).unsqueeze(0)
+        target = input.clone()
+        # Check if user has rated any movies
+        if torch.sum(target.data > 0) > 0:
+            # Get the output
+            output = sae(input)
+            # Set the output to 0 for movies not rated
+            target.require_grad = False
+            output[target == 0] = 0
+            # Compute the loss
+            loss = criterion(output, target)
+            mean_corrector = num_movies/float(torch.sum(target.data > 0) + 1e-10)
+            # Compute the gradient
+            loss.backward()
+            # Update the loss
+            train_loss += np.sqrt(loss.data * mean_corrector)
+            # Update the number of users
+            s += 1.
+            # Update the weights
+            optimizer.step()
+    
+    logging.info(f'Epoch: {str(epoch)} Loss: {str(train_loss/s)}')
 
 
 
